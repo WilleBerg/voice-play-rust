@@ -1,18 +1,30 @@
 use picovoice::{rhino::{RhinoInference, Rhino, RhinoBuilder}, PicovoiceBuilder};
 use pv_recorder::PvRecorderBuilder;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{os::windows::thread, sync::atomic::{AtomicBool, Ordering}};
 use chrono::Local;
-use enigo::{self, Enigo, Keyboard};
+use enigo::{
+    Button, Coordinate,
+    Direction::{self, Click, Press, Release},
+    Enigo, Key, Keyboard, Mouse, Settings,
+};
 use std::env;
 
 static LISTENING: AtomicBool = AtomicBool::new(false);
 
-static CONTEXT_PATH: &str = "./picovoice/gamer_v3.rhn";
+static CONTEXT_PATH: &str = "./pv/windows/gaming_en_windows_v3_0_0.rhn";
+
+
+const KEY_JUMP: enigo::Key = Key::Unicode('l');
+const KEY_DOWN: enigo::Key = Key::Unicode('s');
+const KEY_UP: enigo::Key = Key::Unicode('w');
+const KEY_LEFT: enigo::Key = Key::Unicode('a');
+const KEY_RIGHT: enigo::Key = Key::Unicode('d');
 
 fn main() {
     show_audio_devices();
-    let access_key = env::var("ACCESS_KEY").unwrap();
-    let audio_device_index = 2;
+    //let access_key = env::var("ACCESS_KEY").unwrap();
+    let access_key = "";
+    let audio_device_index = 0;
     
     let rhino: Rhino = RhinoBuilder::new(
         access_key,
@@ -38,7 +50,8 @@ fn main() {
         if let Ok(is_finalized) = rhino.process(&frame) {
             if is_finalized {
                 if let Ok(inference) = rhino.get_inference() {
-                    on_inference(inference, &mut enigo);
+                    let mut inf_result: (String, String, String) = on_inference(inference);
+                    handle_command(inf_result.0, inf_result.1, inf_result.2, &mut enigo)
                 }
             }
         }
@@ -60,45 +73,113 @@ fn show_audio_devices() {
     };
 }
 
-fn on_inference(inference: RhinoInference, enigo: &mut Enigo) {
+fn on_inference(inference: RhinoInference) -> (String, String, String) {
         if inference.is_understood {
             println!("[{}] Inferred:", Local::now().format("%F %T"));
             println!("{{");
             let intent = inference.intent.unwrap();
             println!("\tintent : '{}'", intent);
             println!("\tslots : {{");
+            let mut sl: String = "".to_string();
+            let mut val: String = "".to_string();
             for (slot, value) in inference.slots.iter() {
                 println!("\t\t{} : {}", slot, value);
                 // handle_command(intent, slot, value, &mut enigo);
+                sl = slot.clone();
+                val = value.clone();
             }
             println!("\t}}");
             println!("}}\n");
+            return (intent.clone(), sl, val);
             // add code to take action based on inferred intent and slot values
         } else {
-            println!("Unknown command XD")
+            println!("Unknown command XD");
+            return ("".to_string(), "".to_string() , "".to_string())
             // add code to handle unsupported commands
         }
 }
 
-fn handle_command(intent: String, slot: &String, value: &String, enigo: &mut Enigo) {
-                match intent.as_str() {
-                    "moveJump" =>  {
-                        enigo.key(enigo::Key::Unicode('w'), enigo::Direction::Click);
-                        println!("pressed w");
+fn handle_command(intent: String, slot: String, value: String, enigo: &mut Enigo) {
+                match (intent.as_str(), value.as_str()) {
+                    ("moveCharacterJump", _) =>  {
+                        enigo.key(KEY_JUMP, Press);
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        enigo.key(KEY_JUMP, Release);
+                        println!("jump");
                     },
-                    "moveLeft" => {
-                        enigo.key(enigo::Key::Unicode('a'), enigo::Direction::Click);
-                        println!("pressed a");
-
+                    ("moveCharacterLeft", size) => {
+                        enigo.key(KEY_LEFT, Press).unwrap();
+                        match size {
+                            "big" => std::thread::sleep(std::time::Duration::from_secs(2)),
+                            "mid" => std::thread::sleep(std::time::Duration::from_secs(1)),
+                            "small" => std::thread::sleep(std::time::Duration::from_millis(500)),
+                            _ => std::thread::sleep(std::time::Duration::from_millis(200))
+                        }
+                        enigo.key(KEY_LEFT, Release).unwrap();
+                        println!("LEFT!");
                     }
-                    "moveRight" => {
-                        enigo.key(enigo::Key::Unicode('d'), enigo::Direction::Click);
-                        println!("pressed d");
+                    ("moveCharacterRight", size) => {
+                        enigo.key(KEY_RIGHT, Press).unwrap();
+                        match size {
+                            "big" => std::thread::sleep(std::time::Duration::from_secs(2)),
+                            "mid" => std::thread::sleep(std::time::Duration::from_secs(1)),
+                            "small" => std::thread::sleep(std::time::Duration::from_millis(500)),
+                            _ => std::thread::sleep(std::time::Duration::from_millis(200))
+                        }
+                        enigo.key(KEY_RIGHT, Release).unwrap();
+                        println!("Big right!");
                     }
-                    "moveDown" => {
-                        enigo.key(enigo::Key::Unicode('s'), enigo::Direction::Click);
-                        println!("pressed s");
+                    ("moveCharacterDown", size) => {
+                        enigo.key(KEY_DOWN, Press).unwrap();
+                        match size {
+                            "big" => std::thread::sleep(std::time::Duration::from_secs(2)),
+                            "mid" => std::thread::sleep(std::time::Duration::from_secs(1)),
+                            "small" => std::thread::sleep(std::time::Duration::from_millis(500)),
+                            _ => std::thread::sleep(std::time::Duration::from_millis(200))
+                        }
+                        enigo.key(KEY_DOWN, Release).unwrap();
+                        println!("Down!");
+                    }                    
+                    ("moveCharacterUp", size) => {
+                        enigo.key(KEY_UP, Press).unwrap();
+                        match size {
+                            "big" => std::thread::sleep(std::time::Duration::from_secs(2)),
+                            "mid" => std::thread::sleep(std::time::Duration::from_secs(1)),
+                            "small" => std::thread::sleep(std::time::Duration::from_millis(500)),
+                            _ => std::thread::sleep(std::time::Duration::from_millis(200))
+                        }
+                        enigo.key(KEY_UP, Release).unwrap();
+                        println!("Up!");
+                    }                    
+                    ("moveCharacterRump", size) => {
+                        enigo.key(KEY_RIGHT, Press).unwrap();
+                        enigo.key(KEY_JUMP, Press).unwrap();
+                        match size {
+                            "big" => std::thread::sleep(std::time::Duration::from_secs(2)),
+                            "mid" => std::thread::sleep(std::time::Duration::from_secs(1)),
+                            "small" => std::thread::sleep(std::time::Duration::from_millis(500)),
+                            _ => std::thread::sleep(std::time::Duration::from_millis(500))
+                        }
+                        enigo.key(KEY_RIGHT, Release).unwrap();
+                        enigo.key(KEY_JUMP, Release).unwrap();
+                        println!("Rump!");
                     }
-                    _ => println!("was something else"),
+                    ("moveCharacterLump", size) => {
+                        enigo.key(KEY_RIGHT, Press).unwrap();
+                        enigo.key(KEY_JUMP, Press).unwrap();
+                        match size {
+                            "big" => std::thread::sleep(std::time::Duration::from_secs(2)),
+                            "mid" => std::thread::sleep(std::time::Duration::from_secs(1)),
+                            "small" => std::thread::sleep(std::time::Duration::from_millis(500)),
+                            _ => std::thread::sleep(std::time::Duration::from_millis(500))
+                        }
+                        enigo.key(KEY_RIGHT, Release).unwrap();
+                        enigo.key(KEY_JUMP, Release).unwrap();
+                        println!("Rump!");
+                    }                 
+                    _ => { 
+                        println!("intent {}, slot {}, value {}", intent, slot, value);
+                        println!("was something else")
+                    },
                 }
 }
